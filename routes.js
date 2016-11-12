@@ -1,10 +1,12 @@
 var express = require("express");
 var router = express.Router();
+var Flickr = require("flickrapi");
+ 
 
-var styles = "<style>@import url('https://fonts.googleapis.com/css?family=Quicksand');" +
+var styles = "<style>@import url('https://fonts.googleapis.com/css?family=Open+Sans');" +
             "body{background: #fefefe; word-wrap: break-word;}" +
-            "p {font-size: 20px;color: rgba(244, 67, 54, 0.87);font-family: 'Quicksand', monospace;text-align: center;" +
-            "margin-top: 40vh;font-weight: 500;word-spacing: 2px;}</style>";
+            "p{font-size: 15px;color: rgba(244, 67, 54, 0.87);font-family: 'Quicksand', monospace;text-align: center;" +
+            "margin-top: 20vh;font-weight: 700;word-spacing: 2px;}</style>";
 
 router.get("/latest", function(req, res){
     req.collection.find({}, {term: 1, when: 1, _id: 0, count: 1})
@@ -23,7 +25,6 @@ function insertQueryDoc(req, res, next) {
         if(err) console.error("Error occurred while checking query existence:",err);
         
         if(data.length > 0) {
-            console.log("item existed");
             req.collection.update(
                 { 
                     term: query
@@ -52,11 +53,41 @@ function insertQueryDoc(req, res, next) {
 }
 
 function showData(req, res) {
-    console.log("...showing data...");
+    var offset = req.query.offset || 10;
+    var query = req.params.queries;
+    
+    var flickrOptions = {
+      api_key: process.env.API_KEY.toString(),
+      secret: process.env.API_SECRET.toString()
+    };
+    
+    Flickr.tokenOnly(flickrOptions, function(error, flickr) {
+        flickr.photos.search({
+          text: query,
+          page: 1,
+          per_page: offset
+        }, function(err, result) {
+            if(err) console.error("Error occurred while getting images data:", err);
+            
+            var usefulData = [];
+            
+            result.photos.photo.forEach((item)=>{
+        		usefulData.push({
+        			url: 'https://farm'+item.farm + '.staticflickr.com/' + item.server + '/' + item.id + '_' +item.secret + '.jpg',
+        			alt: item.title,
+        			thumbnail: 'https://farm' + item.farm + '.staticflickr.com/' + item.server + '/' + item.id + '_' + item.secret + '_t.jpg',
+        			info: 'https://www.flickr.com/photos/'+ item.owner + '/' + item.id
+        		});
+        	});
+            
+            var elem = "<p>"+JSON.stringify(usefulData)+"</p>";
+            res.send(styles+elem);
+        });
+    });
+    
 }
 
 router.get("/:queries", function(req, res, next) {
-    res.send(JSON.stringify(req.query));
     next();
 }, insertQueryDoc, showData);
 
