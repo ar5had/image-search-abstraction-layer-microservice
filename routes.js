@@ -6,10 +6,10 @@ var Flickr = require("flickrapi");
 var styles = "<style>@import url('https://fonts.googleapis.com/css?family=Open+Sans');" +
             "body{background: #fefefe; word-wrap: break-word;}" +
             "p{font-size: 15px;color: rgba(244, 67, 54, 0.87);font-family: 'Quicksand', monospace;text-align: center;" +
-            "margin-top: 20vh;font-weight: 700;word-spacing: 2px;}</style>";
+            "margin-top: 10vh;font-weight: 500;word-spacing: 2px;}</style>";
 
 router.get("/latest", function(req, res){
-    req.collection.find({}, {term: 1, when: 1, _id: 0, count: 1})
+    req.collection.find({}, {term: 1, when: 1, _id: 0})
         .sort({$natural: -1}).limit(5)
         .toArray(function(err, data) {
            if(err) console.error("Error occurred while getting latest search results:", err);
@@ -19,41 +19,17 @@ router.get("/latest", function(req, res){
 });
 
 function insertQueryDoc(req, res, next) {
-    var query = req.params.queries.toString();
-    
-    req.collection.find({term: query}).toArray(function(err, data){
-        if(err) console.error("Error occurred while checking query existence:",err);
-        
-        if(data.length > 0) {
-            req.collection.update(
-                { 
-                    term: query
-                },
-                {
-                    $inc : {
-                        count : 1
-                    }
-                }
-            , function(err) {
-                if(err) console.error("Error occurred while increasing count for query-", query, ":", err);
-                next();
-            });
-        }
-        else {
-            var obj = {};
-            obj.term = query;
-            obj.when = new Date().toString();
-            obj.count = 1;
-            req.collection.insert(obj, function(err, data){
-               if(err) console.log("Error occurrred while inserting data:", data);
-               next();
-            });
-        }
+    var obj = {};
+    obj.term = req.params.queries.toString();
+    obj.when = new Date().toString();
+    req.collection.insert(obj, function(err, data){
+       if(err) console.log("Error occurrred while inserting data:", data);
+       next();
     });
 }
 
 function showData(req, res) {
-    var offset = req.query.offset || 10;
+    var offset = req.query.offset || 1;
     var query = req.params.queries;
     
     var flickrOptions = {
@@ -64,8 +40,8 @@ function showData(req, res) {
     Flickr.tokenOnly(flickrOptions, function(error, flickr) {
         flickr.photos.search({
           text: query,
-          page: 1,
-          per_page: offset
+          page: offset,
+          per_page: 10
         }, function(err, result) {
             if(err) console.error("Error occurred while getting images data:", err);
             
